@@ -16,3 +16,4 @@ choco install procexp -y
 choco install tcpview -y
 choco install sigcheck -y
 choco install systeminformer -y
+choco install hxd -y
