@@ -40,6 +40,16 @@ qemu-img convert -O qcow2 disk.qcow2.orig disk.qcow2
 sysmon.exe -i sandbox_sysmon.xml -n <driver>
 ```
 
+Enable powershell scriptblock loggng.
+
+```
+reg add "HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1 /f
+reg add "HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Windows\PowerShell\ModuleLogging" /v EnableModuleLogging /t REG_DWORD /d 1 /f
+reg add "HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Windows\PowerShell\ModuleLogging\ModuleNames" /v * /t REG_SZ /d "*" /f
+```
+
+
+## Sandbox Execution
 To execute in the sandbox use the 
 
 ```bash
