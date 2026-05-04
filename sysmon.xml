@@ -1,5 +1,8 @@
 <Sysmon schemaversion="4.90">
   <HashAlgorithms>MD5,SHA256,IMPHASH</HashAlgorithms>
+  <!-- Archiving: Saves deleted files to C:\Sysmon (Hidden) -->
+  <!-- This allows you to recover malware payloads after they 'self-delete' -->
+  <ArchiveDirectory>PayloadRecovery</ArchiveDirectory>
   <EventFiltering>
 
     <!-- EVENT ID 1: Process Creation -->
@@ -65,6 +68,43 @@
         <!-- If you renamed Sysmon to 'vdisk', exclude it here too -->
         <Image condition="contains">vdisk.exe</Image> 
       </NetworkConnect>
+    </RuleGroup>
+
+    <!-- EVENT ID 6: Driver Loaded -->
+    <!-- Malware (Rootkits) or bypass tools loading kernel drivers -->
+    <RuleGroup name="DriverLoad" groupRelation="or">
+      <DriverLoad onmatch="exclude">
+        <!-- Exclude Microsoft-signed drivers to reduce noise -->
+        <Signature condition="contains">Microsoft</Signature>
+        <Signature condition="contains">Windows</Signature>
+      </DriverLoad>
+    </RuleGroup>
+
+    <!-- EVENT ID 11: File Create -->
+    <!-- Captures when malware 'drops' files to disk -->
+    <RuleGroup name="FileCreate" groupRelation="or">
+      <FileCreate onmatch="exclude">
+        <!-- Exclude browser cache noise which can be massive -->
+        <TargetFilename condition="contains">AppData\Local\Google\Chrome</TargetFilename>
+        <TargetFilename condition="contains">AppData\Local\Microsoft\Edge</TargetFilename>
+      </FileCreate>
+    </RuleGroup>
+
+    <!-- EVENT ID 17 & 18: Pipe Events (Created & Connected) -->
+    <!-- Essential for detecting lateral movement and C2 'beacons' -->
+    <RuleGroup name="PipeActivity" groupRelation="or">
+      <PipeEvent onmatch="exclude">
+        <!-- Exclude standard background pipes -->
+        <PipeName condition="is">\srvsvc</PipeName>
+        <PipeName condition="is">\wkssvc</PipeName>
+        <PipeName condition="contains">chrome.</PipeName>
+      </PipeEvent>
+    </RuleGroup>
+
+    <!-- EVENT ID 23: File Delete (Archive) -->
+    <!-- Works with <ArchiveDirectory> above to preserve evidence -->
+    <RuleGroup name="FileDelete" groupRelation="or">
+      <FileDelete onmatch="exclude" /> <!-- Log ALL deletions -->
     </RuleGroup>
 
   </EventFiltering>
