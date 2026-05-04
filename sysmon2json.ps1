@@ -1,50 +1,43 @@
-# Output file path
-$outputPath = "C:\Logs\SysmonStream.json"
+param(
+    [string]$inputFilePath = "C:\Input\sysmon.xml",
+    [string]$outputFilePath = "C:\Output\sysmon.json"
+)
 
-# Sysmon Log Query
-$queryText = "*[System[Provider[@Name='Microsoft-Windows-Sysmon']]]"
-$query = [System.Diagnostics.Eventing.Reader.EventLogQuery]::new("Microsoft-Windows-Sysmon/Operational", [System.Diagnostics.Eventing.Reader.PathType]::LogName, $queryText)
-
-# Create the watcher
-$watcher = [System.Diagnostics.Eventing.Reader.EventLogWatcher]::new($query)
-
-# Action to perform when a new event is recorded
-$action = {
-    $eventRecord = $eventArgs.EventRecord
-    
-    # Map the event to a clean object
-    $logEntry = [PSCustomObject]@{
-        Timestamp   = $eventRecord.TimeCreated
-        EventID     = $eventRecord.Id
-        Level       = $eventRecord.LevelDisplayName
-        MachineName = $eventRecord.MachineName
-        Message     = $eventRecord.FormatDescription()
-        # Flatten event data for easy JSON parsing
-        Details     = @{}
-    }
-    
-    # Extract specific Sysmon Data fields
-    foreach ($property in $eventRecord.Properties) {
-        $logEntry.Details[$property.Value] = $property.Value # Simplified for example
-    }
-
-    # Append the single JSON object to the file
-    $logEntry | ConvertTo-Json -Compress | Out-File -FilePath $Event.MessageData -Append -Encoding utf8
-    Write-Host "New event processed: ID $($logEntry.EventID)" -ForegroundColor Gray
+# Debug Logging Function
+function Log-Debug {
+    param([string]$message)
+    $timestamp = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+    Write-Host "$timestamp - DEBUG: $message"
 }
 
-# Register the event in PowerShell
-Register-ObjectEvent -InputObject $watcher -EventName "EventRecordWritten" -Action $action -MessageData $outputPath
+try {
+    # Loading the Sysmon XML file
+    Log-Debug "Loading Sysmon XML file from $inputFilePath"
+    [xml]$sysmonData = Get-Content $inputFilePath
+    Log-Debug "Sysmon data loaded successfully."
 
-# Start watching
-$watcher.Enabled = $true
+    # Extracting relevant properties
+    $events = @()
+    foreach ($event in $sysmonData.Sysmon.Event) {
+        $events += [pscustomobject]@{
+            Timestamp = $event.TimeCreated.SystemTime
+            EventID = $event.EventID
+            ProcessName = $event.ProcessName
+            User = $event.User
+            Image = $event.Image
+            # Add more properties as needed
+        }
+    }
+    Log-Debug "Property extraction completed. Found $($events.Count) events."
 
-Write-Host "Monitoring Sysmon logs... Press Ctrl+C to stop." -ForegroundColor Green
+    # Converting to JSON
+    $jsonOutput = $events | ConvertTo-Json -Depth 10
+    Log-Debug "JSON conversion completed."
 
-# Keep the script running to maintain the watcher
-try { while ($true) { Start-Sleep -Seconds 1 } }
-finally {
-    $watcher.Enabled = $false
-    Unregister-Event -SourceIdentifier "WriteWinEventsToTempFile"
+    # Writing to output file
+    Set-Content -Path $outputFilePath -Value $jsonOutput
+    Log-Debug "Output written to $outputFilePath successfully."
+} catch {
+    Log-Debug "An error occurred: $_"
+    throw
 }
-
