@@ -1,0 +1,59 @@
+<Sysmon schemaversion="4.90">
+  <HashAlgorithms>MD5,SHA256,IMPHASH</HashAlgorithms>
+  <EventFiltering>
+
+    <!-- EVENT ID 1: Process Creation -->
+    <RuleGroup name="ProcessCreation" groupRelation="or">
+      <ProcessCreate onmatch="exclude">
+        <!-- Exclude noisy, trusted background tasks -->
+        <Image condition="is">C:\Windows\System32\audiodg.exe</Image>
+        <Image condition="is">C:\Windows\System32\SearchIndexer.exe</Image>
+        <Image condition="is">C:\Windows\System32\wbem\WmiPrvSE.exe</Image>
+      </ProcessCreate>
+    </RuleGroup>
+
+    <!-- EVENT ID 7: Image Load (DLLs) -->
+    <RuleGroup name="ImageLoad" groupRelation="or">
+      <ImageLoad onmatch="exclude">
+        <!-- Exclude common DLLs loaded by every process (Noise Reduction) -->
+        <ImageLoaded condition="end with">kernel32.dll</ImageLoaded>
+        <ImageLoaded condition="end with">ntdll.dll</ImageLoaded>
+        <ImageLoaded condition="end with">kernelbase.dll</ImageLoaded>
+        <!-- Exclude Sysmon itself from its own image load logs -->
+        <Image condition="is">C:\Windows\Sysmon.exe</Image>
+      </ImageLoaded>
+    </RuleGroup>
+
+    <!-- EVENT ID 10: Process Access (Stack Traces) -->
+    <RuleGroup name="ProcessAccess" groupRelation="or">
+      <ProcessAccess onmatch="exclude">
+        <!-- Exclude known "safe" scanners that frequently touch other processes -->
+        <SourceImage condition="is">C:\Windows\System32\wbem\WmiPrvSE.exe</SourceImage>
+        <SourceImage condition="is">C:\Windows\System32\svchost.exe</SourceImage>
+        <SourceImage condition="is">C:\Windows\System32\lsass.exe</SourceImage>
+        <TargetImage condition="is">C:\Windows\System32\lsass.exe</TargetImage>
+      </ProcessAccess>
+    </RuleGroup>
+
+    <!-- EVENT ID 12, 13, 14: Registry Activity -->
+    <RuleGroup name="RegistryActivity" groupRelation="or">
+      <RegistryEvent onmatch="exclude">
+        <!-- Exclude frequent, non-malicious registry noise -->
+        <TargetObject condition="contains">\Control\Lsa\LsaCfgFlags</TargetObject>
+        <TargetObject condition="end with">LanguageCheck</TargetObject>
+        <Image condition="is">C:\Windows\System32\SearchIndexer.exe</Image>
+      </RegistryEvent>
+    </RuleGroup>
+
+    <!-- EVENT ID 22: DNS Queries -->
+    <RuleGroup name="DNSQueries" groupRelation="or">
+      <DnsQuery onmatch="exclude">
+        <!-- Exclude standard Microsoft telemetry and update traffic -->
+        <QueryName condition="end with">.microsoft.com</QueryName>
+        <QueryName condition="end with">.windows.com</QueryName>
+        <QueryName condition="end with">.windowsupdate.com</QueryName>
+      </DnsQuery>
+    </RuleGroup>
+
+  </EventFiltering>
+</Sysmon>
